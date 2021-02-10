@@ -15,7 +15,7 @@ contains
 ! !INTERFACE:
 !
 subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsave)
-
+  
 ! !USES:
 
   use mpeu_util, only: die,perr,getindex
@@ -29,7 +29,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
   use m_obsdiagNode, only: obsdiagNode_assert
 
   use obsmod, only: sfcmodel,perturb_obs,oberror_tune,lobsdiag_forenkf,ianldate,&
-       lobsdiagsave,nobskeep,lobsdiag_allocated,time_offset
+       lobsdiagsave,nobskeep,lobsdiag_allocated,time_offset,aircraft_recon
   use m_obsNode, only: obsNode
   use m_tNode, only: tNode
   use m_tNode, only: tNode_appendto
@@ -45,7 +45,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
   use nc_diag_read_mod, only: nc_diag_read_init, nc_diag_read_get_dim, nc_diag_read_close
 
   use qcmod, only: npres_print,dfact,dfact1,ptop,pbot,buddycheck_t
-  use qcmod, only: njqc,vqc
+  use qcmod, only: njqc,vqc,nvqc
 
   use oneobmod, only: oneobtest
   use oneobmod, only: maginnov
@@ -57,13 +57,14 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
 
   use guess_grids, only: nfldsig, hrdifsig,ges_lnprsl,&
        geop_hgtl,ges_tsen,pbl_height
-  use state_vectors, only: svars3d, levels, nsdim
+  use state_vectors, only: svars3d, levels
 
   use constants, only: zero, one, four,t0c,rd_over_cp,three,rd_over_cp_mass,ten
-  use constants, only: tiny_r_kind,half,two,cg_term
+  use constants, only: tiny_r_kind,half,two
   use constants, only: huge_single,r1000,wgtlim,r10,fv
   use constants, only: one_quad
   use convinfo, only: nconvtype,cermin,cermax,cgross,cvar_b,cvar_pg,ictype,icsubtype
+  use convinfo, only: ibeta,ikapa
   use converr_t, only: ptabl_t 
   use converr, only: ptabl
   use rapidrefresh_cldsurf_mod, only: l_gsd_terrain_match_surftobs,l_sfcobserror_ramp_t
@@ -80,6 +81,16 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
   use buddycheck_mod, only: buddy_check_t
 
   use sparsearr, only: sparr2, new, size, writearray, fullarray
+
+  ! The following variables are the coefficients that describe the
+  ! linear regression fits that are used to define the dynamic
+  ! observation error (DOE) specifications for all reconnissance
+  ! observations collected within hurricanes/tropical cyclones; these
+  ! apply only to the regional forecast models (e.g., HWRF); Henry
+  ! R. Winterbottom (henry.winterbottom@noaa.gov).
+  
+  use obsmod, only: t_doe_a_136,t_doe_a_137,t_doe_b_136,t_doe_b_137
+  
 
   implicit none
 
@@ -202,6 +213,13 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
 !                       . Remove my_node with corrected typecast().
 !   2018-04-09  pondeca -  introduce duplogic to correctly handle the characterization of
 !                          duplicate obs in twodvar_regional applications
+!  2019-09-20  Su      -  remove current VQC part and add subroutine call on VQC with new vqc
+!                          duplicate obs in twodvar_regional applications  
+!   2020-01-27  Winterbottom - moved the linear regression derived
+!                              coefficients for the dynamic
+!                              observation error (DOE) calculation to
+!                              the namelist level; they are now
+!                              loaded by obsmod.
 !
 ! !REMARKS:
 !   language: f90
@@ -243,7 +261,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
   real(r_kind) val,valqc,dlon,dlat,dtime,dpres,error,prest,rwgt,var_jb
   real(r_kind) errinv_input,errinv_adjst,errinv_final
   real(r_kind) err_input,err_adjst,err_final,tfact
-  real(r_kind) cg_t,wgross,wnotgross,wgt,arg,exp_arg,term,rat_err2,qcgross
+  real(r_kind) cg_t,cvar,wgt,rat_err2,qcgross
   real(r_kind),dimension(nobs)::dup
   real(r_kind),dimension(nsig):: prsltmp
   real(r_kind),dimension(nele,nobs):: data
@@ -267,11 +285,11 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
   integer(i_kind) ier2,iuse,ilate,ilone,ikxx,istnelv,iobshgt,izz,iprvd,isprvd
   integer(i_kind) regime
   integer(i_kind) idomsfc,iskint,iff10,isfcr
+  integer(i_kind) ibb,ikk
 
   integer(i_kind),dimension(nobs):: buddyuse
 
   type(sparr2) :: dhx_dx
-  real(r_single), dimension(nsdim) :: dhx_dx_array
 
   integer(i_kind) :: iz, t_ind, nind, nnz
   character(8) station_id
@@ -304,7 +322,6 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
   equivalence(r_sprvstg,c_sprvstg)
 
   real(r_kind),allocatable,dimension(:,:,:  ) :: ges_ps
-  real(r_kind),allocatable,dimension(:,:,:  ) :: ges_z
   real(r_kind),allocatable,dimension(:,:,:,:) :: ges_u
   real(r_kind),allocatable,dimension(:,:,:,:) :: ges_v
   real(r_kind),allocatable,dimension(:,:,:,:) :: ges_tv
@@ -550,10 +567,10 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
            if (aircraft_t_bc) then
               pof_idx = one
               pred(1) = one
-              if (abs(data(ivvlc,i))>=50.0_r_kind) then
-                 pred(2) = zero
-                 pred(3) = zero
-                 data(ier,i) = 1.2_r_kind*data(ier,i)
+              if (abs(data(ivvlc,i))>=30.0_r_kind) then
+                 pred(2) = 30.0_r_kind
+                 pred(3) = pred(2)*pred(2)
+                 data(ier,i) = 1.5_r_kind*data(ier,i)
               else
                  pred(2) = data(ivvlc,i)
                  pred(3) = data(ivvlc,i)*data(ivvlc,i)
@@ -744,6 +761,25 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
      end if
      
      ratio_errors=error/(data(ier,i)+drpx+1.0e6_r_kind*rhgh+r8*ramp)
+
+! Compute innovation
+     if(i_use_2mt4b>0 .and. sfctype) then
+        ddiff = tob-tges2m
+     else
+        ddiff = tob-tges
+     endif
+    
+!    Setup dynamic error specification for aircraft recon in hurricanes
+     if (aircraft_recon) then 
+       if ( itype == 136 ) then
+         ratio_errors=error/((t_doe_a_136*abs(ddiff)+t_doe_b_136)+1.0e6_r_kind*rhgh+r8*ramp)
+       endif
+     
+       if ( itype == 137 ) then
+         ratio_errors=error/((t_doe_a_137*abs(ddiff)+t_doe_b_137)+1.0e6_r_kind*rhgh+r8*ramp)
+       endif
+     endif
+
      error=one/error
 !    if (dpres > rsig) ratio_errors=zero
      if (dpres > rsig )then
@@ -754,12 +790,6 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
         endif
      endif
 
-! Compute innovation
-     if(i_use_2mt4b>0 .and. sfctype) then
-        ddiff = tob-tges2m
-     else
-        ddiff = tob-tges
-     endif
 
 ! Apply bias correction to innovation
      if (aircraftobst .and. (aircraft_t_bc_pof .or. aircraft_t_bc .or. &
@@ -795,6 +825,10 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
 
         ! Gross error relaxation for when buddycheck_t==.true.
         if (buddycheck_t) then 
+
+        !--Disable the buddy check gross error relaxation for any GLERL obs--!
+           if (itype==196 .or. itype==197 .or. itype==198 .or. itype==199) buddyuse(i)=0
+
            if (buddyuse(i)==1) then
               ! - Passed buddy check, relax gross qc
               qcgross=r3p5*qcgross
@@ -803,15 +837,21 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
            else if (buddyuse(i)==0) then
               ! - Buddy check did not run (too few buddies, rusage >= 100, outside twindow, etc.)
               ! - In the case of an isolated ob in complex terrain, see about relaxing the the gross qc 
-              if ( (data(iuse,i)-real(int(data(iuse,i)),kind=r_kind)) == 0.25_r_kind) then 
+              if ( abs( (data(iuse,i)-real(int(data(iuse,i)),kind=r_kind)) - 0.25_r_kind ) <= tiny_r_kind ) then
                  qcgross=r3p5*qcgross                ! Terrain aware modification
                                                      ! to gross error check
               end if         
            else if (buddyuse(i)==-1) then
-              ! - Observation has failed the buddy check - reject.
-              ratio_errors = zero
+              ! - Observation has failed the buddy check - do NOT(!) reject, however.
+              !!!ratio_errors = zero
+              !
+              ! see about relaxing the gross qc in complex terrain
+              if ( abs( (data(iuse,i)-real(int(data(iuse,i)),kind=r_kind)) - 0.25_r_kind ) <= tiny_r_kind ) then
+                 qcgross=r3p5*qcgross                ! Terrain aware modification
+                                                     ! to gross error check
+              end if
            end if
-        else if ( (data(iuse,i)-real(int(data(iuse,i)),kind=r_kind)) == 0.25_r_kind) then 
+        else if ( abs( (data(iuse,i)-real(int(data(iuse,i)),kind=r_kind)) - 0.25_r_kind ) <= tiny_r_kind ) then
           qcgross=r3p5*qcgross                ! Terrain aware modification
                                               ! to gross error check       
         end if  
@@ -867,36 +907,29 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
 
 !    Compute penalty terms
      val      = error*ddiff
+     if(nvqc .and. ibeta(ikx) >0  ) ratio_errors=0.8_r_kind*ratio_errors
      if(luse(i))then
         val2     = val*val
-        exp_arg  = -half*val2
-        rat_err2 = ratio_errors**2
-        if(njqc .and. var_jb>tiny_r_kind .and. var_jb < 10.0_r_kind .and. error >tiny_r_kind)  then
-           if(exp_arg  == zero) then
-              wgt=one
-           else
-              wgt=ddiff*error/sqrt(two*var_jb)
-              wgt=tanh(wgt)/wgt
-           endif
-           term=-two*var_jb*rat_err2*log(cosh((val)/sqrt(two*var_jb)))
-           rwgt = wgt/wgtlim
-           valqc = -two*term
-        else if (vqc .and. cvar_pg(ikx)> tiny_r_kind .and. error >tiny_r_kind) then
-           arg  = exp(exp_arg)
-           wnotgross= one-cvar_pg(ikx)
+        if(vqc) then
            cg_t=cvar_b(ikx)
-           wgross = cg_term*cvar_pg(ikx)/(cg_t*wnotgross)
-           term =log((arg+wgross)/(one+wgross))
-           wgt  = one-wgross/(arg+wgross)
-           rwgt = wgt/wgtlim
-           valqc = -two*rat_err2*term
+           cvar=cvar_pg(ikx)
         else
-           term = exp_arg
-           wgt  = one 
-           rwgt = wgt/wgtlim
-           valqc = -two*rat_err2*term
+           cg_t=zero
+           cvar=zero
         endif
-
+        if(nvqc) then
+ 
+           ibb=ibeta(ikx)
+           ikk=ikapa(ikx)
+        else
+           ibb=0
+           ikk=0
+        endif
+   
+       
+        call vqc_setup(val,ratio_errors,error,cvar,cg_t,ibb,ikk,&
+                      var_jb,rat_err2,wgt,valqc)
+        rwgt = wgt/wgtlim
 !       Accumulate statistics for obs belonging to this task
         if(muse(i))then
            if(rwgt < one) awork(21) = awork(21)+one
@@ -961,6 +994,8 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
         my_head%b       = cvar_b(ikx)
         my_head%pg      = cvar_pg(ikx)
         my_head%jb      = var_jb
+        my_head%ib      = ibeta(ikx)
+        my_head%ik      = ikapa(ikx)
         my_head%use_sfc_model = sfctype.and.sfcmodel
         if(my_head%use_sfc_model) then
            call get_tlm_tsfc(my_head%tlm_tsfc(1), &
@@ -1126,6 +1161,8 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
            my_head%b       = cvar_b(ikx)
            my_head%pg      = cvar_pg(ikx)
            my_head%jb      = var_jb
+           my_head%ib      = ibeta(ikx)
+           my_head%ik      = ikapa(ikx)
            my_head%use_sfc_model = sfctype.and.sfcmodel
            if(my_head%use_sfc_model) then
               call get_tlm_tsfc(my_head%tlm_tsfc(1), &
@@ -1246,7 +1283,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
      varname='ps'
      call gsi_bundlegetpointer(gsi_metguess_bundle(1),trim(varname),rank2,istatus)
      if (istatus==0) then
-         if(allocated(ges_z))then
+         if(allocated(ges_ps))then
             write(6,*) trim(myname), ': ', trim(varname), ' already incorrectly alloc '
             call stop2(999)
          endif
@@ -1337,7 +1374,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
         varname='th2m'
         call gsi_bundlegetpointer(gsi_metguess_bundle(1),trim(varname),rank2,istatus)
         if (istatus==0) then
-            if(allocated(ges_z))then
+            if(allocated(ges_th2))then
                write(6,*) trim(myname), ': ', trim(varname), ' already incorrectly alloc '
                call stop2(999)
             endif
@@ -1355,7 +1392,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
         varname='q2m'
         call gsi_bundlegetpointer(gsi_metguess_bundle(1),trim(varname),rank2,istatus)
         if (istatus==0) then
-            if(allocated(ges_z))then
+            if(allocated(ges_q2))then
                write(6,*) trim(myname), ': ', trim(varname), ' already incorrectly alloc '
                call stop2(999)
             endif
@@ -1410,7 +1447,10 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
      if (.not. append_diag) then ! don't write headers on append - the module will break?
         call nc_diag_header("Number_of_Predictors", npredt         ) ! number of updating bias correction predictors
         call nc_diag_header("date_time",ianldate )
-        call nc_diag_header("Number_of_state_vars", nsdim          )
+        if (save_jacobian) then
+          call nc_diag_header("jac_nnz", nnz)
+          call nc_diag_header("jac_nind", nind)
+        endif
      endif
 
   end subroutine init_netcdf_diag_
@@ -1554,7 +1594,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
     call nc_diag_metadata("Station_ID",              station_id             )
     call nc_diag_metadata("Observation_Class",       obsclass               )
     call nc_diag_metadata("Observation_Type",        ictype(ikx)            )
-!    call nc_diag_metadata("Observation_Subtype",     icsubtype(ikx)         )
+    call nc_diag_metadata("Observation_Subtype",     icsubtype(ikx)         )
     call nc_diag_metadata("Latitude",                sngl(data(ilate,i))    )
     call nc_diag_metadata("Longitude",               sngl(data(ilone,i))    )
     call nc_diag_metadata("Station_Elevation",       sngl(data(istnelv,i))  )
@@ -1579,6 +1619,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
     call nc_diag_metadata("Obs_Minus_Forecast_unadjusted", sngl(tob-tges)   )
     if (aircraft_t_bc_pof .or. aircraft_t_bc .or. aircraft_t_bc_ext) then
        call nc_diag_metadata("Data_Pof",             sngl(data(ipof,i))     )
+       call nc_diag_metadata("Data_Vertical_Velocity", sngl(data(ivvlc,i))  )
        if (npredt .gt. one) then
           call nc_diag_data2d("Bias_Correction_Terms", sngl(predbias) )
        else if (npredt .eq. one) then
@@ -1586,6 +1627,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
        endif
     else
        call nc_diag_metadata("Data_Pof",                 missing                )
+       call nc_diag_metadata("Data_Vertical_Velocity",   missing                )
        if (npredt .gt. one) then
           do j=1,npredt
              predbias(j) = missing
@@ -1621,8 +1663,9 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
     endif
 
     if (save_jacobian) then
-       call fullarray(dhx_dx, dhx_dx_array)
-       call nc_diag_data2d("Observation_Operator_Jacobian", dhx_dx_array)
+       call nc_diag_data2d("Observation_Operator_Jacobian_stind", dhx_dx%st_ind)
+       call nc_diag_data2d("Observation_Operator_Jacobian_endind", dhx_dx%end_ind)
+       call nc_diag_data2d("Observation_Operator_Jacobian_val", real(dhx_dx%val,r_single))
     endif
 
   end subroutine contents_netcdf_diag_
@@ -1635,7 +1678,7 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
     call nc_diag_metadata("Station_ID",              station_id             )
     call nc_diag_metadata("Observation_Class",       obsclass               )
     call nc_diag_metadata("Observation_Type",        ictype(ikx)            )
-!    call nc_diag_metadata("Observation_Subtype",     icsubtype(ikx)         )
+    call nc_diag_metadata("Observation_Subtype",     icsubtype(ikx)         )
     call nc_diag_metadata("Latitude",                sngl(data(ilate,i))    )
     call nc_diag_metadata("Longitude",               sngl(data(ilone,i))    )
     call nc_diag_metadata("Station_Elevation",       sngl(data(istnelv,i))  )
@@ -1660,8 +1703,9 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
     call nc_diag_metadata("Obs_Minus_Forecast_unadjusted", sngl(ddiff)      )
 
     if (save_jacobian) then
-       call fullarray(dhx_dx, dhx_dx_array)
-       call nc_diag_data2d("Observation_Operator_Jacobian", dhx_dx_array)
+       call nc_diag_data2d("Observation_Operator_Jacobian_stind", dhx_dx%st_ind)
+       call nc_diag_data2d("Observation_Operator_Jacobian_endind", dhx_dx%end_ind)
+       call nc_diag_data2d("Observation_Operator_Jacobian_val", real(dhx_dx%val,r_single))
     endif
 
   end subroutine contents_netcdf_diagp_
@@ -1672,6 +1716,8 @@ subroutine setupt(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsav
     if(allocated(ges_v )) deallocate(ges_v )
     if(allocated(ges_u )) deallocate(ges_u )
     if(allocated(ges_ps)) deallocate(ges_ps)
+    if(allocated(ges_q2)) deallocate(ges_q2)
+    if(allocated(ges_th2)) deallocate(ges_th2)
   end subroutine final_vars_
 
 end subroutine setupt

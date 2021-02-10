@@ -55,6 +55,7 @@ module radinfo
 !   2016-11-29  shlyaeva - make nvarjac public
 !   2018-07-24  W. Gu   - the routines to handle correlated R-covariance moved out
 !   2019-06-19  Hu      - add option reset_bad_radbc for reset radiance bias correction coefficient if it is bad.
+!   2019-08-20  zhu     - add flexibility to allow radiances being assimilated without bias correction
 !
 ! subroutines included:
 !   sub init_rad            - set satellite related variables to defaults
@@ -697,7 +698,7 @@ contains
     allocate(nuchan(jpch_rad),nusis(jpch_rad),iuse_rad(0:jpch_rad), &
          ifactq(jpch_rad),varch(jpch_rad),varch_cld(jpch_rad), &
          ermax_rad(jpch_rad),b_rad(jpch_rad),pg_rad(jpch_rad), &
-         ang_rad(jpch_rad),air_rad(jpch_rad),inew_rad(jpch_rad),&
+         ang_rad(jpch_rad),air_rad(jpch_rad),inew_rad(jpch_rad), &
          icld_det(jpch_rad),icloud4crtm(jpch_rad),iaerosol4crtm(jpch_rad), &
          iextra_det(jpch_rad), &
          isnow_det(jpch_rad), &
@@ -847,7 +848,8 @@ contains
                          varA(i,j)=varx(i)
                       end do
                       ostats(j)=ostatsx
-                      if (any(varx/=zero) .and. iuse_rad(j)>-2) inew_rad(j)=.false.
+                      if ((any(varx/=zero) .and. iuse_rad(j)>-2) .or. iuse_rad(j)==4) & 
+                         inew_rad(j)=.false.
                       cycle read3
                    end if
                 end do
@@ -1078,7 +1080,11 @@ contains
                    cfound = .true.
                    nfound(j) = .true.
                    do i=1,npred
-                      predx(i,j)=predr(i)
+                      if (iuse_rad(j)==4) then
+                         predx(i,j)=zero
+                      else
+                         predx(i,j)=predr(i)
+                      end if
                    end do
                    if (adp_anglebc) then 
                       tlapmean(j)=tlapm
@@ -1086,7 +1092,7 @@ contains
                       count_tlapmean(j)=ntlapupdate
                       if (ntlapupdate > ntlapthresh) update_tlapmean(j)=.false.
                    end if
-                   if (any(predr/=zero)) inew_rad(j)=.false.
+                   if (any(predr/=zero) .or. iuse_rad(j)==4) inew_rad(j)=.false.
                    cycle read4
                 end if
              end do
@@ -1129,13 +1135,15 @@ contains
 !      Initialize predx if inew_rad and compute angle bias correction and tlapmean
        if (adp_anglebc) then
           call init_predx
+          cbias=zero
           do j=1,jpch_rad
+             if (iuse_rad(j)==4) cycle
              call angle_cbias(nusis(j),j,cbias(1,j))
           end do
 
 !         check inew_rad again
           do j =1,jpch_rad
-             if (inew_rad(j) .and. iuse_rad(j)>=0 .and. all(predx(:,j)==zero)) then
+             if (inew_rad(j) .and. iuse_rad(j)>=0 .and. iuse_rad(j)/=4 .and. all(predx(:,j)==zero)) then
                 iuse_rad(j)=-1
              end if
           end do
@@ -1295,13 +1303,56 @@ contains
 !   Deallocate data arrays for bias correction and those which hold
 !   information from satinfo file.
 
-    deallocate (predx,cbias,tlapmean,nuchan,nusis,iuse_rad,air_rad,ang_rad,ifactq,inew_rad)
-    deallocate (iextra_det,icld_det,icloud4crtm,iaerosol4crtm, iland_det,isnow_det,&
-                iice_det,iwater_det,imix_det,itopo_det,isst_det,iwndspeed_det,iomg_det)
-    deallocate (varch,varch_cld,varch_sea,varch_land,varch_ice,varch_snow,varch_mixed)
-    if (adp_anglebc) deallocate(count_tlapmean,update_tlapmean,tsum_tlapmean)
-    if (newpc4pred) deallocate(ostats,rstats,varA)
-    deallocate (radstart,radstep,radnstep,radedge1,radedge2)
+    if(allocated(predx)) deallocate(predx)
+    if(allocated(cbias)) deallocate(cbias)
+    if(allocated(tlapmean)) deallocate(tlapmean)
+    if(allocated(nuchan)) deallocate(nuchan)
+    if(allocated(nusis)) deallocate(nusis)
+    if(allocated(iuse_rad)) deallocate(iuse_rad)
+    if(allocated(air_rad)) deallocate(air_rad)
+    if(allocated(ang_rad)) deallocate(ang_rad)
+    if(allocated(ifactq)) deallocate(ifactq)
+    if(allocated(inew_rad)) deallocate(inew_rad)
+
+    if(allocated(iextra_det)) deallocate(iextra_det)
+    if(allocated(icld_det)) deallocate(icld_det)
+    if(allocated(icloud4crtm)) deallocate(icloud4crtm)
+    if(allocated(iaerosol4crtm)) deallocate(iaerosol4crtm)
+    if(allocated(iland_det)) deallocate(iland_det)
+    if(allocated(isnow_det)) deallocate(isnow_det)
+    if(allocated(iice_det)) deallocate(iice_det)
+    if(allocated(iwater_det)) deallocate(iwater_det)
+    if(allocated(imix_det)) deallocate(imix_det)
+    if(allocated(itopo_det)) deallocate(itopo_det)
+    if(allocated(isst_det)) deallocate(isst_det)
+    if(allocated(iwndspeed_det)) deallocate(iwndspeed_det)
+    if(allocated(iomg_det)) deallocate(iomg_det)
+
+    if(allocated(varch)) deallocate(varch)
+    if(allocated(varch_cld)) deallocate(varch_cld)
+    if(allocated(varch_sea)) deallocate(varch_sea)
+    if(allocated(varch_land)) deallocate(varch_land)
+    if(allocated(varch_ice)) deallocate(varch_ice)
+    if(allocated(varch_snow)) deallocate(varch_snow)
+    if(allocated(varch_mixed)) deallocate(varch_mixed)
+    if (adp_anglebc) then
+       if(allocated(count_tlapmean)) deallocate(count_tlapmean)
+       if(allocated(update_tlapmean)) deallocate(update_tlapmean)
+       if(allocated(tsum_tlapmean)) deallocate(tsum_tlapmean)
+    end if
+
+    if (newpc4pred) then
+       if(allocated(ostats)) deallocate(ostats)
+       if(allocated(rstats)) deallocate(rstats)
+       if(allocated(varA)) deallocate(varA)
+    end if
+
+    if(allocated(radstart)) deallocate(radstart)
+    if(allocated(radstep))  deallocate(radstep)
+    if(allocated(radnstep)) deallocate(radnstep)
+    if(allocated(radedge1)) deallocate(radedge1)
+    if(allocated(radedge2)) deallocate(radedge2)
+
     return
   end subroutine radinfo_write
 

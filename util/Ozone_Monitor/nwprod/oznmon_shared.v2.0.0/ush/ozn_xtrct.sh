@@ -57,7 +57,12 @@ iret=0
 export NCP=${NCP:-/bin/cp}
 VALIDATE_DATA=${VALIDATE_DATA:-0}
 nregion=${nregion:-6}
-DO_DATA_RPT=${DO_DATA_RPT:-1}
+DO_DATA_RPT=${DO_DATA_RPT:-0}
+
+netcdf_boolean=".false."
+if [[ $OZNMON_NETCDF -eq 1 ]]; then
+   netcdf_boolean=".true."
+fi
 
 OZNMON_NEW_HDR=${OZNMON_NEW_HDR:-0}
 new_hdr="F"
@@ -70,7 +75,7 @@ fi
 #
 validate=".FALSE."
 if [[ $VALIDATE_DATA -eq 1 ]]; then
-   if [[ ! -e $ozn_val_file ]]; then
+   if [[ ! -e $ozn_val_file && ! -h $ozn_val_file ]]; then
       echo "WARNING:  VALIDATE_DATA set to 1, but unable to locate $ozn_val_file"
       echo "          Setting VALIDATE_DATA to 0/OFF"
       VALIDATE_DATA=0
@@ -148,8 +153,7 @@ else
 
 
    #---------------------------------------------------------------------------
-   #  NOTE:  If ges && anl are to be processed then add an outer for loop on 
-   #  $ozn_ptype
+   #  Outer loop over $ozn_ptype (default values 'ges', 'anl')
    #
    echo "ozn_ptype = $ozn_ptype"
    for ptype in ${ozn_ptype}; do
@@ -192,7 +196,8 @@ cat << EOF > input
          region(6)='70S-90S',   rlonmin(6)=-180.0,rlonmax(6)=180.0,rlatmin(6)=-90.0,rlatmax(6)=-70.0,
          validate=$validate,
          new_hdr=${new_hdr},
-	 ptype=${ptype}
+	 ptype=${ptype},
+         netcdf=${netcdf_boolean}
       /
 EOF
 
@@ -225,7 +230,8 @@ cat << EOF > input
          idhh=-18,
          incr=6,
          new_hdr=${new_hdr},
-         ptype=${ptype}
+         ptype=${ptype},
+         netcdf=${netcdf_boolean}
       /
 EOF
 

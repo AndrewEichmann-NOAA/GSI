@@ -139,7 +139,7 @@ subroutine setuprw(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsa
   use gsi_metguess_mod, only : gsi_metguess_get,gsi_metguess_bundle
   use setupdbz_lib, only:hx_dart
   use sparsearr, only: sparr2, new, size, writearray, fullarray
-  use state_vectors, only: nsdim
+
   implicit none
 
 ! Declare passed variables
@@ -216,7 +216,6 @@ subroutine setuprw(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsa
   real(r_kind) rwwindprofile
 
   type(sparr2) :: dhx_dx
-  real(r_single), dimension(nsdim) :: dhx_dx_array
   integer(i_kind) :: nnz, nind
 
   logical:: in_curbin, in_anybin, save_jacobian
@@ -649,11 +648,20 @@ subroutine setuprw(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsa
        endif
      endif
 
-!    adjust obs error for TDR data
-     if(data(iobs_type,i) > three .and. ratio_errors*error > tiny_r_kind &
+!    adjust obs error for TDR data 
+     if( ratio_errors*error > tiny_r_kind &
         .and. tdrerr_inflate) then
-        ratio_errors = data(ier2,i)/abs(data(ier,i) + 1.0e6_r_kind*rhgh +  &
-          r8*rlow + min(max((abs(ddiff)-ten),zero)/ten,one)*data(ier,i))
+        if(data(iobs_type,i) > three) then
+           ratio_errors = data(ier2,i)/abs(data(ier,i) + 1.0e6_r_kind*rhgh +  &
+             r8*rlow + min(max((abs(ddiff)-ten),zero)/ten,one)*data(ier,i))
+        end if
+!    apply same error adjustment for 88D data in HWRF with a 5 m/s
+!    minimum, which is also the same for TDR. This results in roughly
+!    2.5 m/s RMS fit with 10-km thinning
+        if(data(iobs_type,i) <= three) then
+           ratio_errors = data(ier2,i)/(5.0_r_kind + abs( 1.0e6_r_kind*rhgh +  &
+             r8*rlow + min(max((abs(ddiff)-ten),zero)/ten,one)*5.0_r_kind))
+        end if
      end if 
 
 !    Gross error checks
@@ -1067,7 +1075,10 @@ subroutine setuprw(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsa
 
      if (.not. append_diag) then ! don't write headers on append - the module will break?
         call nc_diag_header("date_time",ianldate )
-        call nc_diag_header("Number_of_state_vars", nsdim          )
+        if (save_jacobian) then
+          call nc_diag_header("jac_nnz", nnz)
+          call nc_diag_header("jac_nind", nind)
+        endif
      endif
   end subroutine init_netcdf_diag_
   subroutine contents_binary_diag_(odiag)
@@ -1188,8 +1199,9 @@ subroutine setuprw(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diagsa
               call nc_diag_data2d("ObsDiagSave_obssen",   odiag%obssen   )             
            endif
            if (save_jacobian) then
-              call fullarray(dhx_dx, dhx_dx_array)
-              call nc_diag_data2d("Observation_Operator_Jacobian", dhx_dx_array)
+              call nc_diag_data2d("Observation_Operator_Jacobian_stind", dhx_dx%st_ind)
+              call nc_diag_data2d("Observation_Operator_Jacobian_endind", dhx_dx%end_ind)
+              call nc_diag_data2d("Observation_Operator_Jacobian_val", real(dhx_dx%val,r_single))
            endif
    
   end subroutine contents_netcdf_diag_

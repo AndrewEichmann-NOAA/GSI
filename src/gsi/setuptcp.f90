@@ -30,6 +30,7 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
 !   2016-11-29  shlyaeva - save linearized H(x) for EnKF
 !   2017-02-09  guo     - Remove m_alloc, n_alloc.
 !                       . Remove my_node with corrected typecast().
+!   2020-09-15  wu      - add option tcp_posmatch 
 !
 !   input argument list:
 !
@@ -41,7 +42,7 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
 !
 !$$$
   use mpeu_util, only: die,perr,getindex
-  use state_vectors, only: ns3d, svars2d, levels, nsdim
+  use state_vectors, only: ns3d, svars2d, levels
   use sparsearr, only: sparr2, new, size, writearray, fullarray
   use kinds, only: r_kind,i_kind,r_single,r_double
   use m_obsdiagNode, only: obs_diag
@@ -52,7 +53,7 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
   use m_obsdiagNode, only: obsdiagNode_assert
 
   use obsmod, only:  &
-             nobskeep,lobsdiag_allocated,oberror_tune,perturb_obs, &
+             nobskeep,lobsdiag_allocated,oberror_tune,perturb_obs,tcp_posmatch,tcp_box, &
              time_offset,rmiss_single,lobsdiagsave,lobsdiag_forenkf,ianldate
   use obsmod, only: netcdf_diag, binary_diag, dirname
   use nc_diag_write_mod, only: nc_diag_init, nc_diag_header, nc_diag_metadata, &
@@ -118,7 +119,6 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
   real(r_kind),dimension(nsig)::prsltmp
 
   type(sparr2) :: dhx_dx
-  real(r_single), dimension(nsdim) :: dhx_dx_array
   integer(i_kind) :: ps_ind, nind, nnz
 
   integer(i_kind) i,jj
@@ -136,10 +136,12 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
   character(8),allocatable,dimension(:):: cdiagbuf
   real(r_single),allocatable,dimension(:,:)::rdiagbuf
   integer(i_kind) nchar,nreal,ii
+  integer(i_kind)imin,jmin,j,l,jb,je,lb,le
 
   real(r_kind),allocatable,dimension(:,:,:  ) :: ges_ps
   real(r_kind),allocatable,dimension(:,:,:  ) :: ges_z
   real(r_kind),allocatable,dimension(:,:,:,:) :: ges_tv
+  real(r_kind)lj,li,pmin
 
   type(obsLList),pointer,dimension(:):: tcphead
   tcphead => obsLL(:)
@@ -243,6 +245,32 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
 
      if(.not.in_curbin) cycle
 
+! use option when TC relocation is not done
+!         tcp_posmatch=1 to move TC to guess position,
+!         tcp_posmatch=2 set pges to the minimum Psfc 
+     if(tcp_posmatch > 0 )then
+        pmin=150._r_kind
+        jb=dlon-tcp_box   ! search (+5,-5)dx/dy for ges TC center
+        je=dlon+tcp_box   ! modify (5 gridpoints to larger number?) when resolution increased
+        lb=dlat-tcp_box
+        le=dlat+tcp_box
+        do j=jb,je  
+           lj=float(j)
+           do l=lb,le
+              li=float(l)
+              call tintrp2a11(ges_ps,psges,li,lj,dtime,hrdifsig,mype,nfldsig)
+              if(pmin>psges)then
+                 imin=l
+                 jmin=j
+                 pmin=psges
+              endif
+           enddo
+        enddo
+        if(tcp_posmatch==1 .and. pmin< 150._r_kind)then
+           dlat=imin
+           dlon=jmin
+        endif
+     endif
 ! Get guess sfc hght at obs location
      call intrp2a11(ges_z(1,1,ntguessig),zsges,dlat,dlon,mype)
 
@@ -285,6 +313,9 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
 
 ! Adjust guess hydrostatically
      rdp = g_over_rd*rdelz/tges
+
+! Set minimum Psfc as pgesorig if tcp_posmatch= 2
+     if(tcp_posmatch==2 .and. pmin< 150._r_kind )pgesorig=pmin
 
 ! Subtract off dlnp correction, then convert to pressure (cb)
      pges = exp(log(pgesorig) - rdp)
@@ -586,7 +617,10 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
 
      if (.not. append_diag) then ! don't write headers on append - the module will break?
         call nc_diag_header("date_time",ianldate )
-        call nc_diag_header("Number_of_state_vars", nsdim          )
+        if (save_jacobian) then
+          call nc_diag_header("jac_nnz", nnz)
+          call nc_diag_header("jac_nind", nind)
+        endif
      endif
   end subroutine init_netcdf_diag_
   subroutine contents_binary_diag_(odiag)
@@ -698,8 +732,9 @@ subroutine setuptcp(obsLL,odiagLL,lunin,mype,bwork,awork,nele,nobs,is,conv_diags
            endif
 
           if (save_jacobian) then
-              call fullarray(dhx_dx, dhx_dx_array)
-              call nc_diag_data2d("Observation_Operator_Jacobian", dhx_dx_array)
+            call nc_diag_data2d("Observation_Operator_Jacobian_stind", dhx_dx%st_ind)
+            call nc_diag_data2d("Observation_Operator_Jacobian_endind", dhx_dx%end_ind)
+            call nc_diag_data2d("Observation_Operator_Jacobian_val", real(dhx_dx%val,r_single))
           endif
 
   end subroutine contents_netcdf_diag_
