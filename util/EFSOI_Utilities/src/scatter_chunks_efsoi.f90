@@ -27,6 +27,7 @@ integer(i_kind), allocatable, dimension(:) :: scounts, displs, rcounts
 real(r_single), allocatable, dimension(:) :: sendbuf,recvbuf,sendbuf2,recvbuf2
 integer(i_kind) :: np, nn, n, nanal, i, ierr
 
+
 allocate(scounts(0:numproc-1))
 allocate(displs(0:numproc-1))
 allocate(rcounts(0:numproc-1))
@@ -63,6 +64,7 @@ allocate(ensmean_chunk_prior(npts_max,ncdim))
 ensmean_chunk = 0.
 allocate(sendbuf(numproc*npts_max*ncdim))
 allocate(recvbuf(numproc*npts_max*ncdim))
+
 ! send and receive buffers.
 if (nproc <= nanals-1) then
    ! fill up send buffer.
@@ -75,6 +77,7 @@ if (nproc <= nanals-1) then
     enddo
    enddo
 end if
+
 call mpi_alltoallv(sendbuf, scounts, displs, mpi_real4, recvbuf,rcounts, displs,&
                    mpi_real4, mpi_comm_world, ierr)
 
@@ -82,17 +85,21 @@ call mpi_alltoallv(sendbuf, scounts, displs, mpi_real4, recvbuf,rcounts, displs,
 !$omp parallel do schedule(dynamic,1)  private(nn,i,nanal,n)
 do nn=1,ncdim
    do i=1,numptsperproc(nproc+1)
+	   
       do nanal=1,nanals
          n = ((nanal-1)*ncdim + (nn-1))*npts_max + i
          anal_chunk(nanal,i,nn) = recvbuf(n)
       enddo
+	  
       ensmean_chunk(i,nn) = sum(anal_chunk(:,i,nn))/float(nanals)
       ensmean_chunk_prior(i,nn) = ensmean_chunk(i,nn)
-! remove mean from ensemble.
+	  
+      ! remove mean from ensemble.
       do nanal=1,nanals
          anal_chunk(nanal,i,nn) = anal_chunk(nanal,i,nn)-ensmean_chunk(i,nn)
          anal_chunk_prior(nanal,i,nn)=anal_chunk(nanal,i,nn)
       end do
+	  
    end do
 end do
 !$omp end parallel do

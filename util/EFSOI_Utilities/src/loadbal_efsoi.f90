@@ -157,6 +157,7 @@ rtmp = 0
 numptsperproc = 0
 np = 0
 test_loadbal = .false. ! simple partition for testing
+! 
 !PRINT *, npts, 'npts load bal'
 do n=1,npts
    if (test_loadbal) then
@@ -170,10 +171,16 @@ do n=1,npts
        rtmp(np) = rtmp(np)+numobs(n)
    endif
    numptsperproc(np) = numptsperproc(np)+1
-!PRINT *, numptsperproc, 'loadbal nptsperpr'
+   !PRINT *, numptsperproc, 'loadbal nptsperpr'
+    
+
+
 end do
+
+
 npts_max = maxval(numptsperproc)
 npts_min = minval(numptsperproc)
+
 allocate(indxproc(numproc,npts_max))
 ! indxproc(np,i) is i'th horiz grid index for processor np.
 ! there are numptsperpoc(np) i values for processor np
@@ -192,6 +199,7 @@ do n=1,npts
    numptsperproc(np) = numptsperproc(np)+1 ! recalculate
    indxproc(np,numptsperproc(np)) = n
 end do
+
 !PRINT *, numptsperproc, 'second time'
 ! print estimated workload for each task
 if (nproc == 0) then
@@ -200,16 +208,22 @@ if (nproc == 0) then
       do n=1,numptsperproc(np)
          rtmp(np) = rtmp(np) + numobs(indxproc(np,n))
       enddo
+	  
+  	  
    enddo
+   
    print *,'min/max estimated work ',&
-    minval(rtmp),maxval(rtmp)
+   minval(rtmp),maxval(rtmp)
+
 endif
 deallocate(rtmp,numobs)
+
 if (nproc == 0) then
     print *,'npts = ',npts
     print *,'min/max number of points per proc = ',npts_min,npts_max
     print *,'time to do model space decomp = ',mpi_wtime()-t1
 end if
+
 ! setup arrays to hold subsets of grid information for each task.
 allocate(grdloc_chunk(3,numptsperproc(nproc+1)))
 allocate(lnp_chunk(numptsperproc(nproc+1),nlevs_pres))

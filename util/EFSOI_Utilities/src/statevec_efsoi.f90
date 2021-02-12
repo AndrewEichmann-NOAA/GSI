@@ -185,13 +185,21 @@ if (nproc == 0) then
   print *, 'nc2d: ', nc2d, ', nc3d: ', nc3d, ', ncdim: ', ncdim
 endif
 
+
 call getgridinfo_efsoi(fgfileprefixes(1), reducedgrid, clevels, nc3d)
+
+
 
 ! Get grid weights for EFSOI
 ! calculation and evaluation
 call get_weight()
+
+
 end subroutine init_statevec_efsoi
 
+
+
+! ====================================================================
 subroutine read_state_efsoi()
 ! read ensemble members on IO tasks
 implicit none
@@ -199,12 +207,17 @@ real(r_double)  :: t1,t2
 integer(i_kind) :: nanal
 integer(i_kind) :: ierr
 
+
+
 ! must at least nanals tasks allocated.
+! this does not fully exit, why? AFE
 if (numproc < nanals) then
-   print *,'need at least nanals =',nanals,'MPI tasks, exiting ...'
+   print *,'need at least nanals =',nanals,'MPI tasks,'
+   print *,'have numproc=',numproc,', exiting ...'
    call mpi_barrier(mpi_comm_world,ierr)
    call mpi_finalize(ierr)
 end if
+
 if (npts < numproc) then
    print *,'cannot allocate more than npts =',npts,'MPI tasks, exiting ...'
    call mpi_barrier(mpi_comm_world,ierr)
@@ -214,34 +227,43 @@ end if
 ! read in whole control vector on i/o procs - keep in memory
 ! (needed in write_ensemble)
 if (nproc <= nanals-1) then
+	
    allocate(grdin(npts,ncdim))
    allocate(grdin2(npts,ncdim))
    allocate(grdin3(npts,ncdim))
    allocate(grdin4(npts,ncdim))
    allocate(grdin5(npts,ncdim))
+   
    nanal = nproc + 1
    t1 = mpi_wtime()
+   
+   
    ! Read ensemble member forecasts needed to obtain
    ! the forecast perturbations at evaluation forecast time (EFT)
    call readgriddata_efsoi(cvars3d,cvars2d,nc3d,nc2d,clevels,ncdim,grdin,read_member_forecasts,nanal=nanal,ft=eft,hr=datehr) 
 
+
    if (nproc == 0) then
-     t2 = mpi_wtime()
-     print *,'time in readgridata on root',t2-t1,'secs'
+      t2 = mpi_wtime()
+      print *,'time in readgridata on root',t2-t1,'secs'
    end if
    
    if (nproc==0) then
       ! Read ensemble mean forecast from analysis
       if(forecast_impact) call readgriddata_efsoi(cvars3d,cvars2d,nc3d,nc2d,clevels,ncdim,grdin2, &
                                   read_ensmean_forecast,nanal=0,ft=eft,hr=datehr)
+								  
       ! Read ensemble mean forecast from first guess
       call readgriddata_efsoi(cvars3d,cvars2d,nc3d,nc2d,clevels,ncdim,grdin3,  &
               read_ensmean_forecast,nanal=0,ft=eft+6,hr=gdatehr)
+			  
       ! Compute One half the sum of ensemble mean forecast quantities
       grdin3 = 0.5_r_kind * (grdin3 + grdin2)
+	  
       ! Verification at evaluation time
       call readgriddata_efsoi(cvars3d,cvars2d,nc3d,nc2d,clevels,ncdim,grdin4, &
               read_verification,infilename=andataname)
+			  
       ! [(0.5*(e_f + e_g)) / (nanals - 1)]
       grdin3 = (grdin3 - grdin4) / real(nanals-1,r_kind)
       ! Normalize for surface pressure ----- (This needs to be corrected) -----
