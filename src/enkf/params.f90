@@ -264,6 +264,7 @@ namelist /nam_enkf/datestring,datapath,iassim_order,nvars,&
                    covinflatenh,covinflatesh,covinflatetr,lnsigcovinfcutoff,letkf_bruteforce_search,&
                    efsoi_cycling,efsoi_flag,imp_physics,lupp,cnvw_option,use_correlated_oberrs,&
                    eft,wmoist,adrate,andataname,&
+                   gdatehr,datehr,&
                    tar_minlat,tar_maxlat,tar_minlon,tar_maxlon,tar_minlev,tar_maxlev,&
                    fv3_native, paranc, nccompress, write_fv3_incr,incvars_to_zero
 namelist /nam_wrf/arw,nmm,nmm_restart

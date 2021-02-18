@@ -488,10 +488,10 @@ subroutine print_ob_sens
      do nob=nobs_conv+nobs_oz+1,nobs_conv+nobs_oz+nobs_sat
         nn = nn + 1
         nchan=indxsat(nn)
-        if (nchan .gt. jpch_rad) then
-              if (nproc == 0) print *,'AFE skipping nchan = ', nchan
-              cycle
-        end if
+!        if (nchan .gt. jpch_rad) then
+!              if (nproc == 0) print *,'AFE skipping nchan = ', nchan
+!              cycle
+!        end if
         ! Output individual observation record
         outdata%obfit_prior = real(obfit_prior(nob),r_single)
         outdata%obsprd_prior = real(obsprd_prior(nob),r_single)
