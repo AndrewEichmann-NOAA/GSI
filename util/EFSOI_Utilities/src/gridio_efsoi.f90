@@ -140,7 +140,7 @@
   !if (nproc .eq. 0) then
 
   filename = trim(adjustl(datapath))//trim(adjustl(andataname))
-	    
+  if (nproc == 0) print *,'reading analysis file: ',filename
   ! --- nemsio data -------------------------------------------------		
   if (use_gfs_nemsio) then
      call nemsio_init(iret=iret)
@@ -569,6 +569,10 @@
   ! to EFSOI relevant quantities                !
   ! --------------------------------------------!
   ! Updated by LL on 2020.07.09
+
+
+  if (nproc == 0) print *,'reading state vector file: ',filename
+
   if (use_gfs_nemsio) then 
 	  
      call nemsio_init(iret=iret)

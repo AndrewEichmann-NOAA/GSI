@@ -131,6 +131,7 @@ nlevs_pres=nlevs+1
 
 if (nproc .eq. 0) then
    filename = trim(adjustl(datapath))//trim(adjustl(fileprefix))//"ensmean"
+   print *,'reading file: ',trim(filename)
    
    if (use_gfs_nemsio) then
        call nemsio_init(iret=iret)
