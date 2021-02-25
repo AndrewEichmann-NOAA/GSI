@@ -43,9 +43,6 @@ APRUNCFP=${APRUNCFP:-""}
 APRUN_ENKF=${APRUN_ENKF:-${APRUN:-""}}
 NTHREADS_ENKF=${NTHREADS_ENKF:-${NTHREADS:-1}}
 
-# FSOI related environment variables
-FSOI_CYCLING=${FSOI_CYCLING:-".false."}
-
 # Executables
 ENKFEXEC=${ENKFEXEC:-$HOMEgfs/exec/global_enkf.x}
 
@@ -180,18 +177,6 @@ EOFuntar
    chmod 755 $DATA/untar.sh
 fi
 
-if [ $FSOI_CYCLING = .true. ]; then
-  # export osense variables to aid
-  # in the linking of observation
-  export OSENSE=${OSENSE:-${COMOUT}/osense_}
-  # Turn off data discarding
-  export PAOVERPB_THRESHOLD=1.00
-else
-  # Set operational data
-  # discarding threshold
-  export PAOVERPB_THRESHOLD=0.98
-fi
-
 ################################################################################
 # Ensemble guess, observational data and analyses/increments
 
@@ -244,10 +229,6 @@ for imem in $(seq 1 $NMEM_ENKF); do
       fi
    done
 done
-
-if [ $FSOI_CYCLING = .true. ]; then
-  $NLN ${OSENSE}${CDATE}.dat osense_${CDATE}.dat
-fi
 
 # Ensemble mean guess
 for FHR in $nfhrs; do
