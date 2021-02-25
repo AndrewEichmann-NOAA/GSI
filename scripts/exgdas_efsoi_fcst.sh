@@ -2,12 +2,14 @@
 ################################################################################
 ####  UNIX Script Documentation Block
 #                      .                                             .
-# Script name:         exglobal_enkf_fcst_fv3gfs.sh.ecf
+# Script name:         exgdas_efsoi_fcst.sh
 # Script description:  Run ensemble forecasts
 #
 # Author:        Rahul Mahajan      Org: NCEP/EMC     Date: 2017-03-02
+# Author:        Andrew Eichmann    Org: NCEP/EMC     Date: 2021-02-25
 #
 # Abstract: This script runs ensemble forecasts serially one-after-another
+#           for EFSOI.  Based on exgdas_enkf_fcst.sh
 #
 # $Id$
 #
@@ -27,12 +29,8 @@ fi
 
 # Directories.
 pwd=$(pwd)
-export NWPROD=${NWPROD:-$pwd}
-export HOMEgfs=${HOMEgfs:-$NWPROD}
 export FIX_DIR=${FIX_DIR:-$HOMEgfs/fix}
 export FIX_AM=${FIX_AM:-$FIX_DIR/fix_am}
-export DATA=${DATA:-$pwd/enkf_fcst.$$}
-export ROTDIR=${ROTDIR:-$pwd}
 
 # Utilities
 export NCP=${NCP:-"/bin/cp -p"}
@@ -42,12 +40,12 @@ export ERRSCRIPT=${ERRSCRIPT:-'eval [[ $err = 0 ]]'}
 export NDATE=${NDATE:-/$NWPROD/util/exec/ndate}
 
 # Scripts.
-FORECASTSH=${FORECASTSH:-$HOMEgfs/scripts/exglobal_fcst_nemsfv3gfs.sh.ecf}
+FORECASTSH=${FORECASTSH:-$HOMEgfs/scripts/exglobal_forecast.sh}
 
 # Enemble group, begin and end
-EFSOIGRP=${EFSOIGRP:-1}
-EFSOIBEG=${EFSOIBEG:-1}
-EFSOIEND=${EFSOIEND:-1}
+ENSGRP=${ENSGRP:-1}
+ENSBEG=${ENSBEG:-1}
+ENSEND=${ENSEND:-1}
 
 # Model builds
 export FCSTEXECDIR=${FCSTEXECDIR:-$HOMEgfs/sorc/fv3gfs.fd/BUILD/bin}
@@ -62,14 +60,24 @@ export CDATE=${CDATE:-"2001010100"}
 export CDUMP=${CDUMP:-"gdas"}
 
 # Re-run failed members, or entire group
-RERUN_EFSOIGRP=${RERUN_EFSOIGRP:-"YES"}
+RERUN_EFCSGRP=${RERUN_EFCSGRP:-"YES"}
+
+# Recenter flag and increment file prefix
+RECENTER_ENKF=${RECENTER_ENKF:-"YES"}
+export PREFIX_ATMINC=${PREFIX_ATMINC:-""}
 
 # Ops related stuff
 SENDECF=${SENDECF:-"NO"}
+SENDDBN=${SENDDBN:-"NO"}
+GSUFFIX=${GSUFFIX:-$SUFFIX}
 
 ################################################################################
 # Preprocessing
-if [ ! -d $DATA ]; then mkdir -p $DATA; fi
+mkdata=NO
+if [ ! -d $DATA ]; then
+   mkdata=YES
+   mkdir -p $DATA
+fi
 cd $DATA || exit 99
 DATATOP=$DATA
 
@@ -77,13 +85,13 @@ DATATOP=$DATA
 # Set output data
 cymd=$(echo $CDATE | cut -c1-8)
 chh=$(echo  $CDATE | cut -c9-10)
-EFCSOIGRP=$ROTDIR/enkf.${CDUMP}.${cymd}/$chh/efsoi.grp${EFSOIGRP}
-if [ -f $EFCSOIGRP ]; then
-   if [ $RERUN_EFSOIGRP = "YES" ]; then
-      rm -f $EFCSOIGRP
+EFCSGRP=$COMOUT/efcs.grp${ENSGRP}
+if [ -f $EFCSGRP ]; then
+   if [ $RERUN_EFCSGRP = "YES" ]; then
+      rm -f $EFCSGRP
    else
-      echo "RERUN_EFSOIGRP = $RERUN_EFSOIGRP, will re-run FAILED members only!"
-      $NMV $EFCSOIGRP ${EFCSOIGRP}.fail
+      echo "RERUN_EFCSGRP = $RERUN_EFCSGRP, will re-run FAILED members only!"
+      $NMV $EFCSGRP ${EFCSGRP}.fail
    fi
 fi
 
@@ -108,11 +116,11 @@ export layout_y=${layout_y_ENKF:-${layout_y:-16}}
 export LEVS=${LEVS_ENKF:-${LEVS:-64}}
 
 # nggps_diag_nml
-export FHOUT=${FHOUT_EFSOI:-6}
+export FHOUT=${FHOUT_ENKF:-3}
 
 # model_configure
 export DELTIM=${DELTIM_ENKF:-${DELTIM:-225}}
-export FHMAX=${FHMAX_EFSOI:-30}
+export FHMAX=${FHMAX_ENKF:-9}
 export restart_interval=${restart_interval_ENKF:-${restart_interval:-6}}
 
 # gfs_physics_nml
@@ -124,9 +132,14 @@ export IAER=${IAER_ENKF:-${IAER:-111}}
 export ICO2=${ICO2_ENKF:-${ICO2:-2}}
 export cdmbgwd=${cdmbgwd_ENKF:-${cdmbgwd:-"3.5,0.25"}}
 export dspheat=${dspheat_ENKF:-${dspheat:-".true."}}
-export shal_cnv=${shal_cnv_ENKF:-${shal_cnv:-".false."}}
+export shal_cnv=${shal_cnv_ENKF:-${shal_cnv:-".true."}}
 export FHZER=${FHZER_ENKF:-${FHZER:-6}}
 export FHCYC=${FHCYC_ENKF:-${FHCYC:-6}}
+
+# Set PREFIX_ATMINC to r when recentering on
+if [ $RECENTER_ENKF = "YES" ]; then
+   export PREFIX_ATMINC="r"
+fi
 
 # APRUN for different executables
 export APRUN_FV3=${APRUN_FV3:-${APRUN:-""}}
@@ -135,7 +148,7 @@ export NTHREADS_FV3=${NTHREADS_FV3:-${NTHREADS:-1}}
 ################################################################################
 # Run forecast for ensemble member
 rc=0
-for imem in $(seq $EFSOIBEG $EFSOIEND); do
+for imem in $(seq $ENSBEG $ENSEND); do
 
    cd $DATATOP
 
@@ -147,8 +160,8 @@ for imem in $(seq $EFSOIBEG $EFSOIEND); do
    ra=0
 
    skip_mem="NO"
-   if [ -f ${EFCSOIGRP}.fail ]; then
-      memstat=$(cat ${EFCSOIGRP}.fail | grep "MEMBER $cmem" | grep "PASS" | wc -l)
+   if [ -f ${EFCSGRP}.fail ]; then
+      memstat=$(cat ${EFCSGRP}.fail | grep "MEMBER $cmem" | grep "PASS" | wc -l)
       [[ $memstat -eq 1 ]] && skip_mem="YES"
    fi
 
@@ -162,37 +175,56 @@ for imem in $(seq $EFSOIBEG $EFSOIEND); do
       $FORECASTSH
       ra=$?
 
-      # Notify a member forecast failed, freeze epos, but continue on to next member
+      # Notify a member forecast failed and abort
       if [ $ra -ne 0 ]; then
-         msg="forecast of member $cmem FAILED"
+         msg="FATAL ERROR:  forecast of member $cmem FAILED.  Aborting job"
          print $msg
-         [[ $SENDECF = "YES" ]] && ecflow_client --abort=$msg
+         export err=$ra
+         $ERRSCRIPT || exit 2
       fi
 
       ((rc+=ra))
 
    fi
 
+   if [ $SENDDBN = YES ]; then
+     fhr=$FHOUT
+     while [ $fhr -le $FHMAX ]; do
+       FH3=$(printf %03i $fhr)
+       if [ $(expr $fhr % 3) -eq 0 ]; then
+         $DBNROOT/bin/dbn_alert MODEL GFS_ENKF $job $COMOUT/$memchar/${CDUMP}.t${cyc}z.sfcf${FH3}${GSUFFIX}
+       fi
+       fhr=$((fhr+FHOUT))
+     done
+   fi
+
    cd $DATATOP
 
-   $NCP $EFCSOIGRP log_old
-   rm log log_new
+   if [ -s $EFCSGRP ]; then
+       $NCP $EFCSGRP log_old
+   fi
+   [[ -f log ]] && rm log
+   [[ -f log_new ]] && rm log_new
    if [ $ra -ne 0 ]; then
       echo "MEMBER $cmem : FAIL" > log
    else
       echo "MEMBER $cmem : PASS" > log
    fi
-   cat log_old log > log_new
-   $NCP log_new $EFCSOIGRP
+   if [ -s log_old ] ; then
+       cat log_old log > log_new
+   else
+       cat log > log_new
+   fi
+   $NCP log_new $EFCSGRP
 
 done
 
 ################################################################################
 # Echo status of ensemble group
 cd $DATATOP
-echo "Status of ensemble members in group $EFSOIGRP:"
-cat $EFCSOIGRP
-rm ${EFCSOIGRP}.fail
+echo "Status of ensemble members in group $ENSGRP:"
+cat $EFCSGRP
+[[ -f ${EFCSGRP}.fail ]] && rm ${EFCSGRP}.fail
 
 ################################################################################
 # If any members failed, error out
@@ -203,7 +235,7 @@ $ERRSCRIPT || exit 2
 ################################################################################
 #  Postprocessing
 cd $pwd
-[[ ${KEEPDATA:-"NO"} = "NO" ]] && rm -rf $DATATOP
+[[ $mkdata = "YES" ]] && rm -rf $DATATOP
 set +x
 if [ $VERBOSE = "YES" ] ; then
    echo $(date) EXITING $0 with return code $err >&2
