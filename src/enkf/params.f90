@@ -376,7 +376,7 @@ nlats = 0
 ! total number of levels
 nlevs = 0
 ! number of ensemble members
-nanals = 80
+nanals = 0
 ! nvars is numer of 3d variables to update.
 ! for hydrostatic models, typically 5 (u,v,T,q,ozone).
 nvars = 5
