@@ -20,15 +20,3 @@ webpage (with the help of tools in pandas):
 https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_2.htm 
 May need to be periodically updated
 
-The following are left from Dave Groff's development work and are not longer viable, 
-but are retained for historical reference to aid current development. Once the
-EFSOI utility is fully running they can be removed
-
-efso_advance_ensemble.sh
-efso_cleanup.sh
-efso_cleanup_wrapper.sh
-efso_file_assembly.sh
-efso_run.sh
-efso_wrapper.sh
-README_EFSOI
-
