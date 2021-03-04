@@ -10,6 +10,7 @@
 !
 ! prgmmr: whitaker         org: esrl/psd               date: 2009-02-23
 ! prgmmr: groff            org: emc                    date: 2018-05-24
+! prgmmr: eichmann, lin    org: emc                    date: 2021-02-04
 !
 ! abstract: I/O for ensemble member files.
 ! 
@@ -39,6 +40,7 @@
 !               quantities from files read.
 !   2019-03-13  Add precipitation components
 !   2019-07-10  Add convective clouds
+!   2021-02-04  Added functionality for FV3 GFS, netcdf file handling
 !
 ! attributes:
 !   language: f95
@@ -431,8 +433,7 @@
   integer, intent(in), optional :: ft
   integer, intent(in), optional :: hr
   
-!  character, intent(in), optional :: infilename AFE
-  character(len=100), intent(in), optional :: infilename ! AFE
+  character(len=100), intent(in), optional :: infilename 
   integer, intent(in) :: mode
   character(len=max_varname_length), dimension(n2d), intent(in) :: vars2d
   character(len=max_varname_length), dimension(n3d), intent(in) :: vars3d

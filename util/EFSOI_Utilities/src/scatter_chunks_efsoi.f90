@@ -18,7 +18,6 @@ contains
 subroutine scatter_chunks_ob_impact
 ! distribute chunks from grdin (read in controlvec) according to
 ! decomposition from load_balance
-! AFE use statevec_efsoi, only: grdin,grdin2,grdin3
 use statevec_efsoi, only: grdin,grdin3,grdin5
 use gridinfo_efsoi, only: ncdim
 implicit none
@@ -120,7 +119,6 @@ if(nproc == 0) then
       do nn=1,ncdim
          do i=1,numptsperproc(np)
             n = ((np-1)*ncdim + (nn-1))*npts_max + i
-! AFE           sendbuf(n) = grdin2(indxproc(np,i),nn)
             sendbuf(n) = grdin5(indxproc(np,i),nn)
             sendbuf2(n) = grdin3(indxproc(np,i),nn)
          end do
@@ -147,7 +145,6 @@ end if
       end do
    end do
    deallocate(sendbuf,recvbuf,sendbuf2,recvbuf2)
-! AFE   if(allocated(grdin2)) deallocate(grdin2)
    if(allocated(grdin5)) deallocate(grdin5)
    call divide_weight(analmean_chunk)
    call divide_weight(ensmean_chunk(:,:))

@@ -43,6 +43,7 @@ module statevec_efsoi
 !               init and cleanup are called from here now
 !   2018-05-14  Groff: Adapted from enkf controlvec.f90 to provide
 !               io functionality necessary for efsoi calculations
+!   2021-03-04  Eichmann: updated to work with FV3 GFS
 !
 ! attributes:
 !   language: f95
@@ -209,8 +210,6 @@ integer(i_kind) :: ierr
 
 
 
-! must at least nanals tasks allocated.
-! this does not fully exit, why? AFE
 if (numproc < nanals) then
    print *,'need at least nanals =',nanals,'MPI tasks,'
    print *,'have numproc=',numproc,', exiting ...'
