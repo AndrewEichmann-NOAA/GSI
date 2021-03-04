@@ -413,31 +413,6 @@
  end subroutine divide_weight 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
  subroutine readgriddata_efsoi(vars3d,vars2d,n3d,n2d,levels,ndim,grdin,mode,nanal,ft,hr,infilename)
 	 
   use sigio_module, only: sigio_head, sigio_data, sigio_sclose, sigio_sropen, &
