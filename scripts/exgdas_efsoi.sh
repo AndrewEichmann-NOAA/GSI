@@ -370,9 +370,6 @@ export ERR=$rc
 export err=$ERR
 $ERRSCRIPT || exit 2
 
-## save for EFSOI task (still needed?)
-#$NCP $COMOUT_ANL_ENS/$GBIASe $COMOUT_ANL_ENSFSOI
-
 # Cat runtime output files.
 cat stdout stderr > $COMOUT_ANL_ENSFSOI/$EFSOISTAT
 
@@ -381,9 +378,7 @@ $NCP osense_${CDATE}.dat $OSENSE_SAVE_DIR/$OSENSEOUT
 
 ################################################################################
 #  Postprocessing
-######## AFE remove after testing
-cp -r $DATA /scratch1/NCEPDEV/stmp4/Andrew.Eichmann/efsoi
-######## AFE
+
 cd $pwd
 [[ $mkdata = "YES" ]] && rm -rf $DATA
 set +x
