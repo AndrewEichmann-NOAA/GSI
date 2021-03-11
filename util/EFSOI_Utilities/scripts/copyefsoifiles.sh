@@ -1,10 +1,29 @@
 #!/bin/sh -x
+################################################################################
+####  UNIX Script Documentation Block
+#                      .                                             .
+# Script name:         copyefsoifiles.sh
+# Script description:  copy files required for EFSOI from COMROT 
+#
+# Author:        Andrew Eichmann  Org: NCEP/EMC     Date: 2021-03-05 
+#
+# Abstract: This script copies the files required to run EFSOI executable
+#           from COMROT that has generated 24/30 hour forecasts to staging
+#           directory for testing purposes 
+#
+# $Id$
+#
+# Attributes:
+#   Language: POSIX shell
+#   Machine: Hera
+#
+################################################################################
 
 
-EXPDIR=/scratch1/NCEPDEV/stmp4/Andrew.Eichmann/nov2019b
-STGDIR=/scratch1/NCEPDEV/stmp4/Andrew.Eichmann/efsoitest2/staging
-#STGDIR=/scratch1/NCEPDEV/stmp4/Andrew.Eichmann/tmp/
-#EDATE=2019111800
+
+COMROT=
+STGDIR=
+
 EDATE=2019111818
 NENS=20
 NDATE=/scratch1/NCEPDEV/global/Fanglin.Yang/save/VRFY/vsdb/nwprod/util/exec/ndate
@@ -48,8 +67,8 @@ fi
 
 cd $PDATECYC
 
-cp -vi $EXPDIR/$PDATEDIR/$PDATECYC/gdas.t${PDATECYC}z.atmf030.ensmean.* .
-cp -vi $EXPDIR/$PDATEDIR/$PDATECYC/gdas.t${PDATECYC}z.atmf006.ensmean.* .
+cp -vi $COMROT/$PDATEDIR/$PDATECYC/gdas.t${PDATECYC}z.atmf030.ensmean.* .
+cp -vi $COMROT/$PDATEDIR/$PDATECYC/gdas.t${PDATECYC}z.atmf006.ensmean.* .
 
 
 # set up 24 hour forecast
@@ -74,10 +93,9 @@ fi
 
 cd $EDATECYC
 
-cp -vi $EXPDIR/$EDATEDIR/$EDATECYC/gdas.t${EDATECYC}z.atmf024.ensmean.* .
-cp -vi $EXPDIR/$EDATEDIR/$EDATECYC/gdas.t${EDATECYC}z.atmf006.ensmean.* .
-#cp -vi $EXPDIR/$EDATEDIR/$EDATECYC/gdas.t${EDATECYC}z.atmanl.ensmean.* .
-cp -vi $EXPDIR/$EDATEDIR/$EDATECYC/gdas.t${EDATECYC}z.abias_int.ensmean .
+cp -vi $COMROT/$EDATEDIR/$EDATECYC/gdas.t${EDATECYC}z.atmf024.ensmean.* .
+cp -vi $COMROT/$EDATEDIR/$EDATECYC/gdas.t${EDATECYC}z.atmf006.ensmean.* .
+cp -vi $COMROT/$EDATEDIR/$EDATECYC/gdas.t${EDATECYC}z.abias_int.ensmean .
 
 
 
@@ -94,8 +112,8 @@ while [[ $imem -le $NENS ]]; do
 
    cd $member
 
-   cp -vi $EXPDIR/$EDATEDIR/$EDATECYC/$member/gdas.t${EDATECYC}z.atmf024.nemsio .  
-   cp -vi $EXPDIR/$EDATEDIR/$EDATECYC/$member/gdas.t${EDATECYC}z.atmf024s.nemsio .  
+   cp -vi $COMROT/$EDATEDIR/$EDATECYC/$member/gdas.t${EDATECYC}z.atmf024.nemsio .  
+   cp -vi $COMROT/$EDATEDIR/$EDATECYC/$member/gdas.t${EDATECYC}z.atmf024s.nemsio .  
  
    cd ..
    
