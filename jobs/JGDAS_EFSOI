@@ -106,15 +106,6 @@ status=$?
 [[ $status -ne 0 ]] && exit $status
 
 
-
-##############################################
-# Send Alerts
-##############################################
-if [ $SENDDBN = YES  ] ; then
-   $DBNROOT/bin/dbn_alert MODEL ENKF1_MSC_enkfstat $job $COMOUT_ANL_ENSFSOI/${APREFIX}enkfstat
-fi
-
-
 ##############################################
 # End JOB SPECIFIC work
 ##############################################
