@@ -1,0 +1,46 @@
+
+This script runs the unit test of GFS/GDAS EFSOI executable
+It requires a build of global-workflow with the EFSOI infrastructure,
+a build of GSI branch with EFSOI, and data files that can be downloaded
+from HPSS. 
+
+Currently this only works on Hera.
+
+First set up the ROTDIR where you normally keep them. Run
+
+hpsstar get /NCEPDEV/emc-global/1year/Andrew.Eichmann/EFSOI/EFSOI-test.tar
+
+which will download the ROTDIR contents from HPSS. 
+
+
+The test script is run like so:
+
+sbatch < jobscript.sh 
+
+There are environment variables that the user should change before running:
+
+In jobscript.sh:
+TEST_ROOT: 	the directory this README is located; this is to access the 
+		config files in expdir
+
+In expdir/config.base:
+HOMEgfs: 	a functioning build of global-workflow
+PSLOT & ROTDIR: location of your ROTDIR
+
+In expdir/config.efsoi:
+EFSOIEXEC:	the path to the global_efsoi.x executable to test
+
+You also might want to change the Slurm batch environment variables such as
+
+#SBATCH --account
+and
+#SBATCH --qos 
+
+
+Maintenance note: the config files in expdir are largely the same as those of 
+a current develop build of global-workflow, and should remain as such or the 
+future equivalent. Much of the contents is superfluous to the testing, but it 
+might not be clear which parts are, and it is probably easiest for them to 
+resemble current usage.
+
+
