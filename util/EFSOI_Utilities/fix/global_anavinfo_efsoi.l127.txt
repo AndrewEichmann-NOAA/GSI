@@ -67,14 +67,8 @@ state_vector_efsoi::
  u       127      0     met_guess    u
  v       127      0     met_guess    v
  tv      127      0     met_guess    tv
-! tsen    127      0     met_guess    tv,q
  q       127      1     met_guess    q
-! oz      127      1     met_guess    oz
-! ql      127      1     met_guess    ql 
-! qi      127      1     met_guess    qi 
-! prse    128      0     met_guess    prse
  ps        1      0     met_guess    prse
-! sst       1      0     met_guess    sst
 ::
 
 
