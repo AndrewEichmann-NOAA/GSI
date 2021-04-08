@@ -13,10 +13,8 @@
 
 source expdir/config.base
 
-export TEST_ROOT='/scratch1/NCEPDEV/da/Andrew.Eichmann/testtest'
-
-# the following are set in config.base in a regular experiment, but switched to here for clarity
-# and accessbility
+export TEST_ROOT='/scratch1/NCEPDEV/da/Andrew.Eichmann/gsidev/afe-efsoi/GSI/util/EFSOI_Utilities/scripts/unit_test'
+#export TEST_ROOT='/GSI/util/EFSOI_Utilities/scripts/unit_test'
 
 export EXPDIR=$TEST_ROOT'/expdir'
 
