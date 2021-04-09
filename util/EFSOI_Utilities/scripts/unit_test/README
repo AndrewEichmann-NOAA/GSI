@@ -6,7 +6,8 @@ from HPSS.
 
 Currently this only works on Hera.
 
-First set up the ROTDIR where you normally keep them. Run
+First set up the ROTDIR where you normally keep them. Create the directory,
+cd into it, and run
 
 hpsstar get /NCEPDEV/emc-global/1year/Andrew.Eichmann/EFSOI/EFSOI-test.tar
 
@@ -20,11 +21,12 @@ sbatch < jobscript.sh
 There are environment variables that the user should change before running:
 
 In jobscript.sh:
-TEST_ROOT: 	the directory this README is located; this is to access the 
-		config files in expdir
+EFSOI_ROOT: 	the directory of the GSI repository with the EFSOI build you 
+		wish to test; assumes that jobscript.sh and the config files
+		below are in same
 
 In expdir/config.base:
-HOMEgfs: 	a functioning build of global-workflow
+HOMEgfs: 	a functioning build of EFSOI-enabled global-workflow
 PSLOT & ROTDIR: location of your ROTDIR
 
 In expdir/config.efsoi:

@@ -13,10 +13,13 @@
 
 source expdir/config.base
 
-export TEST_ROOT='/scratch1/NCEPDEV/da/Andrew.Eichmann/gsidev/afe-efsoi/GSI/util/EFSOI_Utilities/scripts/unit_test'
-#export TEST_ROOT='/GSI/util/EFSOI_Utilities/scripts/unit_test'
 
-export EXPDIR=$TEST_ROOT'/expdir'
+# your EFSOI_ROOT here:
+# example:
+#export EFSOI_ROOT='/scratch1/NCEPDEV/da/Andrew.Eichmann/gsidev/afe-efsoi/GSI'
+export EFSOI_ROOT=
+
+export EXPDIR=$EFSOI_ROOT'/util/EFSOI_Utilities/scripts/unit_test/expdir'
 
 
 export SLURM_SET='YES'
