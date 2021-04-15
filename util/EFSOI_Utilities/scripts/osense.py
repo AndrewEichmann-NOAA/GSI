@@ -133,4 +133,4 @@ def read_osense( filename):
     print(convdata.describe())
     print(satdata.describe())
 
-    return( ( convdata, satdata) )
+    return( ( convdata, satdata, idate ) )

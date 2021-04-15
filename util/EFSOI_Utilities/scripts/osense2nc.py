@@ -3,32 +3,10 @@ import netCDF4 as nc
 import numpy as np
 import osense
 
-#satnum_in = 100
+# this is determined in the observation sensitivty module in the enkf code - better would
+# be to set it dynamically from the the maximum string length
 strlen=20
 osensefile='/scratch1/NCEPDEV/stmp4/Andrew.Eichmann/testtest/osense/osense_2019111918_final.dat'
-
-(convdata, satdata, idate )= osense.read_osense( osensefile)
-
-satnum_in = satdata.shape[0] 
-
-columns1 =  [ 'obfit_prior',
-                 'obsprd_prior',
-                 'ensmean_obnobc',
-                 'ensmean_ob',
-                 'ob',
-                 'oberrvar',
-                 'lon',
-                 'lat',
-                 'pres',
-                 'time',
-                 'oberrvar_orig',
-#                 'stattype',
-#                 'obtype',
-#                 'indxsat',
-                 'osense_kin',
-                 'osense_dry',
-                 'osense_moist' ]
-
 
 columns = [ ( 'obfit_prior' , 'Observation fit to the first guess'),
 	( 'obsprd_prior' , 'Spread of observation prior'),
@@ -45,53 +23,62 @@ columns = [ ( 'obfit_prior' , 'Observation fit to the first guess'),
 	( 'osense_dry' , 'Observation sensitivity (Dry total energy) [J/kg]'),
 	( 'osense_moist' , 'Observation sensitivity (Moist total energy) [J/kg]') ]
 
-try: ncfile.close()  # just to be safe, make sure dataset is not already open.
-except: pass
-#ncfile = Dataset('new.nc',mode='w',format='NETCDF4_CLASSIC') 
-ncfile = Dataset('new.nc',mode='w',format='NETCDF4') 
+(convdata, satdata, idate )= osense.read_osense( osensefile)
 
+
+
+
+def fill_nc( dataset, ncfilname ):
+
+
+   obnum_in = dataset.shape[0] 
+   try: ncfile.close()  # just to be safe, make sure dataset is not already open.
+   except: pass
+   ncfile = Dataset(ncfilename,mode='w',format='NETCDF4') 
+
+   _ = ncfile.createDimension('nobs', obnum_in) 
+   _ = ncfile.createDimension('nchars',strlen)
+
+   for dim in ncfile.dimensions.items():
+       print(dim)
+
+   nobs = ncfile.createVariable('nobs', np.int32, ('nobs',))
+   nobs.long_name = 'number of observations'
+   nobs[:] = list(range(1,obnum_in+1))
+
+   # netcdf isn't crazy about strings as data, so there's this
+   obtype = ncfile.createVariable('obtype', 'S1', ('nobs','nchars'))
+   obtypestr=np.array(dataset[ 'obtype' ],dtype='S20')    
+   obtype[:] = nc.stringtochar(obtypestr )   
+   obtype.long_name = 'Observation element / Satellite name'
+
+   stattype = ncfile.createVariable('stattype', np.int32, ('nobs'))
+   stattype.long_name = 'Observation type'
+   stattype[:] = dataset[ 'stattype' ].to_numpy()
+
+   indxsat = ncfile.createVariable('indxsat', np.int32, ('nobs'))
+   indxsat.long_name = 'Satellite index (channel) set to zero'
+   indxsat[:] = dataset[ 'indxsat' ].to_numpy()
+
+   for column in columns:
+       
+       varname = column[0]
+       ncvar = ncfile.createVariable(varname, np.float32, ('nobs'))
+       ncvar.long_name = column[1]
+       ncvar[:] = dataset[ varname ].to_numpy()
+  
+   return ncfile
+
+
+ncfilename = 'osense_' + str(idate) + '_sat.nc'
+ncfile = fill_nc( satdata, ncfilename )
 ncfile.title='My satellite osense data'
+print(ncfile)
+ncfile.close(); print('Dataset is closed!')
 
-satnum_dim = ncfile.createDimension('satnum', satnum_in) 
-_ = ncfile.createDimension('nchars',strlen)
-
-for dim in ncfile.dimensions.items():
-    print(dim)
-
-satnum = ncfile.createVariable('satnum', np.int32, ('satnum',))
-satnum.long_name = 'number of satellite observations'
-satnum[:] = list(range(1,satnum_in+1))
-
-#obtype = ncfile.createVariable('obtype', np.str, ('satnum'))
-obtype = ncfile.createVariable('obtype', 'S1', ('satnum','nchars'))
-#obtype[:] = satdata[ 'obtype' ].to_numpy()
-obtypestr=np.array(satdata[ 'obtype' ],dtype='S20')    
-obtype[:] = nc.stringtochar(obtypestr )   
-obtype.long_name = 'Observation element / Satellite name'
-
-
-stattype = ncfile.createVariable('stattype', np.int32, ('satnum'))
-stattype.long_name = 'Observation type'
-stattype[:] = satdata[ 'stattype' ].to_numpy()
-
-indxsat = ncfile.createVariable('indxsat', np.int32, ('satnum'))
-indxsat.long_name = 'Satellite index (channel) set to zero'
-indxsat[:] = satdata[ 'indxsat' ].to_numpy()
-
-
-
-for column in columns:
-    
-    varname = column[0]
-    ncvar = ncfile.createVariable(varname, np.float32, ('satnum'))
-    ncvar.long_name = column[1]
-    ncvar[:] = satdata[ varname ].to_numpy()
-
-
-
-
-
-
+ncfilename = 'osense_' + str(idate) + '_conv.nc'
+ncfile = fill_nc( convdata, ncfilename )
+ncfile.title='My conventional and ozone osense data'
 print(ncfile)
 ncfile.close(); print('Dataset is closed!')
 
