@@ -10,8 +10,8 @@ use gridio_efsoi
 implicit none
 private
 public :: scatter_chunks_ob_impact
-real(r_kind),public, allocatable, dimension(:,:,:) :: anal_chunk, anal_chunk_prior
-real(r_single),public, allocatable, dimension(:,:) :: ensmean_chunk, ensmean_chunk_prior 
+real(r_kind),public, allocatable, dimension(:,:,:) :: anal_chunk 
+real(r_single),public, allocatable, dimension(:,:) :: ensmean_chunk 
 real(r_single),public, allocatable, dimension(:,:) :: fcerror_chunk, analmean_chunk
 contains
 
@@ -57,9 +57,7 @@ enddo
 allocate(anal_chunk(nanals,npts_max,ncdim))
 if (nproc == 0) print *,'anal_chunk size = ',size(anal_chunk)
 
-allocate(anal_chunk_prior(nanals,npts_max,ncdim))
 allocate(ensmean_chunk(npts_max,ncdim))
-allocate(ensmean_chunk_prior(npts_max,ncdim))
 ensmean_chunk = 0.
 allocate(sendbuf(numproc*npts_max*ncdim))
 allocate(recvbuf(numproc*npts_max*ncdim))
@@ -91,12 +89,10 @@ do nn=1,ncdim
       enddo
 	  
       ensmean_chunk(i,nn) = sum(anal_chunk(:,i,nn))/float(nanals)
-      ensmean_chunk_prior(i,nn) = ensmean_chunk(i,nn)
 	  
       ! remove mean from ensemble.
       do nanal=1,nanals
          anal_chunk(nanal,i,nn) = anal_chunk(nanal,i,nn)-ensmean_chunk(i,nn)
-         anal_chunk_prior(nanal,i,nn)=anal_chunk(nanal,i,nn)
       end do
 	  
    end do
