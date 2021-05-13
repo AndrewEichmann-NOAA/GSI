@@ -24,7 +24,8 @@ HPSS_PROJECT=emc-global
 
 # set this for EFSOI unit test - example:
 #export HOMEgfs=/scratch1/NCEPDEV/da/Andrew.Eichmann/fv3gfs/EFSOI-release/global-workflow
-export HOMEgfs=
+export HOMEgfs=/scratch1/NCEPDEV/da/Andrew.Eichmann/fv3gfs/EFSOI-dev/global-workflow
+#export HOMEgfs=
 export PARMgfs=$HOMEgfs/parm
 export FIXgfs=$HOMEgfs/fix
 export USHgfs=$HOMEgfs/ush
@@ -101,10 +102,10 @@ export EDATE=2019112700
 export EXP_WARM_START=".false."
 export assim_freq=6
 # set these for EFSOI unit test - examples:
-#export PSLOT="EFSOI-test"
-#export ROTDIR="/scratch1/NCEPDEV/stmp4/Andrew.Eichmann/$PSLOT"
-export PSLOT=
-export ROTDIR=
+export PSLOT="EFSOI-test"
+export ROTDIR="/scratch1/NCEPDEV/stmp4/Andrew.Eichmann/$PSLOT"
+#export PSLOT=
+#export ROTDIR=
 export ROTDIR_DUMP="YES"                #Note: A value of "NO" does not currently work
 export DUMP_SUFFIX=""
 if [[ "$CDATE" -ge "2019092100" && "$CDATE" -le "2019110700" ]]; then
