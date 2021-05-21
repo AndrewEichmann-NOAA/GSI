@@ -49,7 +49,6 @@ use enkf_obsmod, only: nobstot,nobs_conv,nobs_oz,nobs_sat,obtype,obloclat, &
 use convinfo, only: convinfo_read,init_convinfo
 use ozinfo, only: ozinfo_read,init_oz
 use radinfo, only: radinfo_read,jpch_rad,nusis,nuchan,npred
-!use gridinfo_efsoi, only: latsgrd,lonsgrd,nlevs_pres,npts,id_u,id_v
 use loadbal, only: indxproc,grdloc_chunk,numptsperproc,npts_max,kdtree_grid
 use covlocal, only: latval
 use kdtree2_module, only: kdtree2_create
