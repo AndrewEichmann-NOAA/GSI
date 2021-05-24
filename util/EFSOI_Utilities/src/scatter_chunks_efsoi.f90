@@ -1,7 +1,8 @@
 module scatter_chunks_efsoi
 
-use mpisetup !, only: numproc, nproc, mpi_real4
-use kinds, only: i_kind, r_single
+use mpisetup, only: numproc, nproc, mpi_real4
+use mpimod, only : mpi_comm_world
+use kinds, only: i_kind, r_single, r_kind
 use loadbal_efsoi, only: npts_max, numptsperproc, indxproc
 use params, only: nanals
 use gridio_efsoi

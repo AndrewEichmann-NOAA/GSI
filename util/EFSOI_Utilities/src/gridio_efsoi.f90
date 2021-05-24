@@ -132,7 +132,6 @@
   ! ============================================================
   ! Read analysis data 
   ! ==================================
-  ! 2020.07.09 by LL
   ! update ncio
   !if (nproc .eq. 0) then
 
@@ -342,12 +341,8 @@
 	
  endif
  
-!!! LL
  if (use_gfs_nemsio) call nemsio_close(gfile,iret=iret)
  if (use_gfs_ncio)   call close_dataset(dset)   
-  
-  
-  
   
   !$omp parallel do private(k) shared(weight,pressi,grweight,nlevs) 
   do k=1,nlevs 
@@ -455,7 +450,6 @@
 
   integer(i_kind) :: k,iret,idvc,nlonsin,nlatsin,nlevsin
   
-  ! Added by LL
   character(len=10) :: fileformat
   integer(i_kind)   :: iunitsig
   type(sigio_head)  :: sighead
@@ -469,7 +463,6 @@
 
 
  
-  ! Added by LL
   iunitsig = 77
   nb = 1
   ne = 1
@@ -496,7 +489,7 @@
   else if (use_gfs_ncio) then
 	  fileformat = '.nc'
   else
-	  print *,'Warning in gridio_efsoi.f90 by LL (2020.07.09)'
+	  print *,'Warning in gridio_efsoi.f90 '
   end if
   ! ======================================
 
@@ -539,7 +532,6 @@
   ! Read in state vector from file and transform!
   ! to EFSOI relevant quantities                !
   ! --------------------------------------------!
-  ! Updated by LL on 2020.07.09
 
 
   if (nproc == 0) print *,'reading state vector file: ',filename
@@ -569,7 +561,6 @@
 
   else if (use_gfs_ncio) then 
 
-	 ! Edited by LL on 2020.07.16
      dset = open_dataset(filename)
 	 
      londim = get_dim(dset,'grid_xt'); nlonsin = londim%len
@@ -743,7 +734,6 @@
          if (u_ind > 0) call copytogrdin(ug,grdin(:,levels(u_ind-1) + k))
          if (v_ind > 0) call copytogrdin(vg,grdin(:,levels(v_ind-1) + k))
 		 
-		 ! Added by LL
          ! Transformation to EFSOI relevant quantities
          ! Assign weighted kinetic energy components. There
          ! are no unit/metric differences for the kinetic component
@@ -868,13 +858,9 @@
   ! Transformation to EFSOI relevant quantities
   ! Surface pressure contribution
   grdin(:,levels(n3d) + ps_ind) = rdtrpr * grweight(:) * 100._r_kind * grdin(:,levels(n3d) + ps_ind)
-
-
-
   
   deallocate(psg)
  
-  ! updated by LL
   if (use_gfs_nemsio) call nemsio_close(gfile,iret=iret)
   if (use_gfs_ncio)   call close_dataset(dset)
 

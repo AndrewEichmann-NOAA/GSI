@@ -51,7 +51,8 @@ module statevec_efsoi
 !
 !$$$
 
-use mpisetup
+use mpisetup, only: numproc,nproc,mpi_wtime
+use mpimod, only: mpi_comm_world
 use gridio_efsoi,    only: readgriddata_efsoi, get_weight, ncdim
 use gridinfo,  only: getgridinfo, gridinfo_cleanup,              &
                      npts, vars3d_supported, vars2d_supported
@@ -211,20 +212,14 @@ do k=1,nlevs
    id_t(k) = clevels(tv_ind-1) + k
    id_q(k) = clevels(q_ind-1) + k
 end do
+
 id_ps = clevels(nc3d) + ps_ind
-
-
-
-
 
 ! Get grid weights for EFSOI
 ! calculation and evaluation
 call get_weight()
 
-
 end subroutine init_statevec_efsoi
-
-
 
 ! ====================================================================
 subroutine read_state_efsoi()
@@ -233,8 +228,6 @@ implicit none
 real(r_double)  :: t1,t2
 integer(i_kind) :: nanal
 integer(i_kind) :: ierr
-
-
 
 if (numproc < nanals) then
    print *,'need at least nanals =',nanals,'MPI tasks,'
