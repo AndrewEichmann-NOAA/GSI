@@ -761,10 +761,6 @@ corrlengthnh = corrlengthnh * 1.e3_r_single/rearth
 corrlengthtr = corrlengthtr * 1.e3_r_single/rearth
 corrlengthsh = corrlengthsh * 1.e3_r_single/rearth
 
-if(efsoi_cycling) then
-   letkf_flag = .false.
-end if
-
 ! convert targe area boundary into radians
 tar_minlat = tar_minlat * deg2rad
 tar_maxlat = tar_maxlat * deg2rad

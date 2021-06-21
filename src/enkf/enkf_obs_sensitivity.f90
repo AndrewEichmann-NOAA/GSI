@@ -44,7 +44,7 @@ use constants, only: zero,one,half,rearth,pi,deg2rad,rad2deg
 use enkf_obsmod, only: nobstot,nobs_conv,nobs_oz,nobs_sat,obtype,obloclat, &
                        obloclon,obpress,indxsat,oberrvar,stattype,obtime,ob, &
                        ensmean_ob,ensmean_obnobc,obsprd_prior,obfit_prior, &
-                       oberrvar_orig,biaspreds,anal_ob,nobstot,lnsigl, &
+                       oberrvar_orig,biaspreds,anal_ob_post,nobstot,lnsigl, &
                        corrlengthsq,obtimel,oblnp,obloc
 use convinfo, only: convinfo_read,init_convinfo
 use ozinfo, only: ozinfo_read,init_oz
@@ -218,7 +218,7 @@ subroutine read_ob_sens
   allocate(biaspreds(npred+1,nobs_sat))
   allocate(tmpanal_ob(nanals))
   allocate(tmpbiaspreds(npred+1))
-  if(nproc == 0) allocate(anal_ob(nanals,nobstot))
+  if(nproc == 0) allocate(anal_ob_post(nanals,nobstot))
   ! Read loop over conventional observations
   do nob=1,nobs_conv+nobs_oz
      read(iunit) indata,tmpanal_ob
@@ -235,7 +235,7 @@ subroutine read_ob_sens
      oberrvar_orig(nob) = real(indata%oberrvar_orig,r_kind)
      stattype(nob) = indata%stattype
      obtype(nob) = indata%obtype
-     if(nproc == 0) anal_ob(1:nanals,nob) = real(tmpanal_ob(1:nanals),r_kind)
+     if(nproc == 0) anal_ob_post(1:nanals,nob) = real(tmpanal_ob(1:nanals),r_kind)
   end do
   ! Read loop over satellite radiance observations
   nn = 0
@@ -256,7 +256,7 @@ subroutine read_ob_sens
      stattype(nob) = indata%stattype
      obtype(nob) = indata%obtype
      indxsat(nn) = indata%indxsat
-     if(nproc == 0) anal_ob(1:nanals,nob) = real(tmpanal_ob(1:nanals),r_kind)
+     if(nproc == 0) anal_ob_post(1:nanals,nob) = real(tmpanal_ob(1:nanals),r_kind)
      biaspreds(1:npred+1,nn) = real(tmpbiaspreds(1:npred+1),r_kind)
   end do
   if(nn /= nobs_sat) then
@@ -439,7 +439,7 @@ subroutine print_ob_sens
            outdata%osense_dry = 9.9e31_r_single
            outdata%osense_moist = 9.9e31_r_single
         end if
-        tmpanal_ob(1:nanals) = real(anal_ob(1:nanals,nob),r_single)
+        tmpanal_ob(1:nanals) = real(anal_ob_post(1:nanals,nob),r_single)
         write(iunit) outdata,tmpanal_ob
         if(.not. efsoi_flag) cycle
         ! Sum up
@@ -510,7 +510,7 @@ subroutine print_ob_sens
            outdata%osense_dry = 9.9e31_r_single
            outdata%osense_moist = 9.9e31_r_single
         end if
-        tmpanal_ob(1:nanals) = real(anal_ob(1:nanals,nob),r_single)
+        tmpanal_ob(1:nanals) = real(anal_ob_post(1:nanals,nob),r_single)
         write(iunit) outdata,tmpanal_ob,tmpbiaspreds
         if(.not. efsoi_flag) cycle
         ! Sum up
